@@ -3,7 +3,9 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
 from docx import Document
 
-TOKEN = "8266598840:AAHVHVcb6jSulTVRztsSHe2rjw83X7sxz50"
+import os
+
+TOKEN = os.getenv("TOKEN")
 
 # DOCX -> TXT
 def docx_to_txt(input_path, output_path):
