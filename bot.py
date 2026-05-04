@@ -57,7 +57,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• Статистика\n"
         "• История файлов\n\n"
         "📎 Отправь файл или выбери кнопку 👇\n\n"
-        "👨‍💻 Создатель: @YOUR_USERNAME",
         reply_markup=menu
     )
 
@@ -70,7 +69,7 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "⚡ Бот автоматически его конвертирует\n\n"
         "📊 Статистика — сколько файлов ты отправил\n"
         "🧾 История — последние файлы\n\n"
-        "👨‍💻 Создатель: @YOUR_USERNAME"
+        "👨‍💻 За помощью: @justmilodias"
     )
 
 
