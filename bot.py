@@ -1,5 +1,6 @@
 import os
 from collections import defaultdict, deque
+
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
@@ -8,9 +9,12 @@ from telegram.ext import (
     ContextTypes,
     filters
 )
+
 from docx import Document
 
+
 TOKEN = os.getenv("TOKEN")
+
 
 # ---------------- STORAGE ----------------
 user_stats = defaultdict(int)
@@ -50,13 +54,16 @@ menu = ReplyKeyboardMarkup(
 # ---------------- START ----------------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 Добро пожаловать в PRO-конвертер!\n\n"
-        "🛠 Возможности:\n"
-        "• DOCX → TXT\n"
-        "• TXT → DOCX\n"
-        "• Статистика\n"
-        "• История файлов\n\n"
-        "📎 Отправь файл или выбери кнопку 👇\n\n"
+        (
+            "👋 Добро пожаловать в PRO-конвертер!\n\n"
+            "🛠 Возможности:\n"
+            "• DOCX → TXT\n"
+            "• TXT → DOCX\n"
+            "• Статистика\n"
+            "• История файлов\n\n"
+            "📎 Просто отправь файл или нажми кнопку 👇\n\n"
+            "👨‍💻 Создатель: @YOUR_USERNAME"
+        ),
         reply_markup=menu
     )
 
@@ -64,12 +71,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ---------------- HELP ----------------
 async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "ℹ️ ПОМОЩЬ\n\n"
-        "📎 Просто отправь файл (.docx или .txt)\n"
-        "⚡ Бот автоматически его конвертирует\n\n"
-        "📊 Статистика — сколько файлов ты отправил\n"
-        "🧾 История — последние файлы\n\n"
-        "👨‍💻 За помощью: @justmilodias"
+        (
+            "ℹ️ ПОМОЩЬ\n\n"
+            "📎 Как пользоваться:\n"
+            "• Отправь .docx или .txt файл\n"
+            "• Или нажми кнопку 📎\n\n"
+            "⚡ Бот автоматически конвертирует файл\n\n"
+            "👨‍💻 Создатель: @YOUR_USERNAME"
+        )
     )
 
 
@@ -80,7 +89,7 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         f"📊 Статистика\n\n"
-        f"👤 Пользователь: {user}\n"
+        f"👤 {user}\n"
         f"📎 Файлов обработано: {count}"
     )
 
@@ -135,7 +144,7 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
         with open(output_path, "rb") as f:
             await update.message.reply_document(f)
 
-        # stats update
+        # stats
         user_stats[user] += 1
         user_history[user].append(file_name)
 
@@ -148,12 +157,12 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"⚠️ Ошибка: {str(e)}")
 
 
-# ---------------- TEXT BUTTONS ----------------
+# ---------------- BUTTONS ----------------
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
 
     if text == "📎 Отправить файл":
-        await update.message.reply_text("📎 Просто отправь .docx или .txt")
+        await update.message.reply_text("📎 Просто отправь файл (.docx или .txt)")
 
     elif text == "📊 Статистика":
         await stats(update, context)
