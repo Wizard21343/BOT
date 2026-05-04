@@ -3,7 +3,7 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
 from docx import Document
 
-import os
+
 
 TOKEN = os.getenv("TOKEN")
 
