@@ -1,2 +1,9 @@
 python-telegram-bot==21.0
 python-docx
+pdfplumber
+fpdf2
+openpyxl
+markdown2
+Pillow
+python-docx
+pytesseract
