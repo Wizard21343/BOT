@@ -52,26 +52,15 @@ from PIL import Image
 import io
 
 from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-import urllib.request
+from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 
-# Download a Unicode font (DejaVu) once at startup if not present
-FONT_PATH = "/tmp/DejaVuSans.ttf"
-FONT_URL  = "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf"
-
-def ensure_font():
-    if not os.path.exists(FONT_PATH):
-        urllib.request.urlretrieve(FONT_URL, FONT_PATH)
-    try:
-        pdfmetrics.registerFont(TTFont("DejaVu", FONT_PATH))
-    except Exception:
-        pass  # already registered
-
-ensure_font()
+# Use built-in CID font — no download needed, full Unicode support
+pdfmetrics.registerFont(UnicodeCIDFont("STSong-Light"))
+UNICODE_FONT = "STSong-Light"
 
 
 TOKEN = os.getenv("TOKEN")
@@ -98,10 +87,10 @@ def _lines_to_pdf(lines, dst):
     )
     style = ParagraphStyle(
         "body",
-        fontName="DejaVu",
+        fontName=UNICODE_FONT,
         fontSize=11,
         leading=16,
-        wordWrap="CJK",   # handles all scripts
+        wordWrap="CJK",
     )
     story = []
     for line in lines:
