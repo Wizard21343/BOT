@@ -1,4 +1,36 @@
 import os
+import subprocess
+import sys
+
+# Auto-install missing packages at runtime
+def install(pkg):
+    subprocess.check_call([sys.executable, "-m", "pip", "install", pkg, "-q"])
+
+try:
+    import reportlab
+except ImportError:
+    install("reportlab")
+
+try:
+    import pdfplumber
+except ImportError:
+    install("pdfplumber")
+
+try:
+    import openpyxl
+except ImportError:
+    install("openpyxl")
+
+try:
+    import markdown2
+except ImportError:
+    install("markdown2")
+
+try:
+    from PIL import Image
+except ImportError:
+    install("Pillow")
+
 from collections import defaultdict, deque
 
 from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardMarkup, InlineKeyboardButton
