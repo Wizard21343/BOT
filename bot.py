@@ -13,12 +13,33 @@ from telegram.ext import (
 
 from docx import Document
 import pdfplumber
-from fpdf import FPDF
 import openpyxl
 import csv
 import markdown2
 from PIL import Image
 import io
+
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import mm
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+import urllib.request
+
+# Download a Unicode font (DejaVu) once at startup if not present
+FONT_PATH = "/tmp/DejaVuSans.ttf"
+FONT_URL  = "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf"
+
+def ensure_font():
+    if not os.path.exists(FONT_PATH):
+        urllib.request.urlretrieve(FONT_URL, FONT_PATH)
+    try:
+        pdfmetrics.registerFont(TTFont("DejaVu", FONT_PATH))
+    except Exception:
+        pass  # already registered
+
+ensure_font()
 
 
 TOKEN = os.getenv("TOKEN")
@@ -30,6 +51,38 @@ user_stats = defaultdict(int)
 user_history = defaultdict(lambda: deque(maxlen=5))
 user_names = {}          # user_id -> "Name (@username)"
 pending_files = {}       # user_id -> {"path": ..., "name": ..., "ext": ...}
+
+
+# ================================================================
+#  PDF HELPER  (reportlab, full Unicode via DejaVu font)
+# ================================================================
+def _lines_to_pdf(lines, dst):
+    """Write a list of text lines to a PDF with proper Unicode support."""
+    doc = SimpleDocTemplate(
+        dst,
+        pagesize=A4,
+        leftMargin=20*mm, rightMargin=20*mm,
+        topMargin=20*mm,  bottomMargin=20*mm,
+    )
+    style = ParagraphStyle(
+        "body",
+        fontName="DejaVu",
+        fontSize=11,
+        leading=16,
+        wordWrap="CJK",   # handles all scripts
+    )
+    story = []
+    for line in lines:
+        text = line.strip() if isinstance(line, str) else line
+        # Escape XML special chars for reportlab
+        text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        if text:
+            story.append(Paragraph(text, style))
+        else:
+            story.append(Spacer(1, 6))
+    if not story:
+        story.append(Paragraph("(empty)", style))
+    doc.build(story)
 
 
 # ================================================================
@@ -60,13 +113,8 @@ def docx_to_md(src, dst):
 
 def docx_to_pdf(src, dst):
     doc = Document(src)
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Helvetica", size=12)
-    for p in doc.paragraphs:
-        safe = p.text.encode("latin-1", errors="replace").decode("latin-1")
-        pdf.multi_cell(0, 8, safe)
-    pdf.output(dst)
+    lines = [p.text for p in doc.paragraphs]
+    _lines_to_pdf(lines, dst)
 
 
 # --- TXT ---
@@ -84,36 +132,47 @@ def txt_to_md(src, dst):
         f.write(content)   # plain text is valid markdown
 
 def txt_to_pdf(src, dst):
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Helvetica", size=12)
     with open(src, "r", encoding="utf-8") as f:
-        for line in f:
-            safe = line.strip().encode("latin-1", errors="replace").decode("latin-1")
-            pdf.multi_cell(0, 8, safe)
-    pdf.output(dst)
+        lines = f.readlines()
+    _lines_to_pdf(lines, dst)
 
 
 # --- PDF ---
 def pdf_to_txt(src, dst):
     with pdfplumber.open(src) as pdf:
-        text = "\n".join(page.extract_text() or "" for page in pdf.pages)
+        pages = []
+        for page in pdf.pages:
+            # extract_text with layout=True preserves spacing & columns
+            text = page.extract_text(layout=True, x_tolerance=3, y_tolerance=3)
+            if text:
+                pages.append(text)
     with open(dst, "w", encoding="utf-8") as f:
-        f.write(text)
+        f.write("\n\n--- Page Break ---\n\n".join(pages))
 
 def pdf_to_docx(src, dst):
     with pdfplumber.open(src) as pdf:
-        text = "\n".join(page.extract_text() or "" for page in pdf.pages)
+        pages = []
+        for page in pdf.pages:
+            text = page.extract_text(layout=True, x_tolerance=3, y_tolerance=3)
+            if text:
+                pages.append(text)
     doc = Document()
-    for line in text.splitlines():
-        doc.add_paragraph(line)
+    for i, page_text in enumerate(pages):
+        if i > 0:
+            doc.add_page_break()
+        for line in page_text.splitlines():
+            doc.add_paragraph(line)
     doc.save(dst)
 
 def pdf_to_md(src, dst):
     with pdfplumber.open(src) as pdf:
-        text = "\n".join(page.extract_text() or "" for page in pdf.pages)
+        pages = []
+        for page in pdf.pages:
+            text = page.extract_text(layout=True, x_tolerance=3, y_tolerance=3)
+            if text:
+                pages.append(text)
     with open(dst, "w", encoding="utf-8") as f:
-        f.write(text)
+        f.write("\n\n---\n\n".join(pages))
 
 
 # --- XLSX / CSV ---
@@ -177,14 +236,8 @@ def md_to_docx(src, dst):
 
 def md_to_pdf(src, dst):
     with open(src, "r", encoding="utf-8") as f:
-        content = f.read()
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Helvetica", size=12)
-    for line in content.splitlines():
-        safe = line.encode("latin-1", errors="replace").decode("latin-1")
-        pdf.multi_cell(0, 8, safe)
-    pdf.output(dst)
+        lines = f.readlines()
+    _lines_to_pdf(lines, dst)
 
 
 # --- Images ---
